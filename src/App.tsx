@@ -5,6 +5,7 @@ import { useBooks } from './hooks/useBooks';
 import { useTheme } from './hooks/useTheme';
 import BottomNav, { type TabId } from './components/BottomNav';
 import BookDetail from './components/BookDetail';
+import AdBanner from './components/AdBanner';
 import HomePage from './pages/HomePage';
 import LibraryPage from './pages/LibraryPage';
 import ScanPage from './pages/ScanPage';
@@ -21,7 +22,10 @@ export default function App() {
   const handleClose     = () => setSelected(null);
 
   return (
-    <div className="relative h-full overflow-hidden bg-[var(--color-bg)]">
+    <div className="relative h-full overflow-hidden bg-[var(--color-bg)] flex flex-col">
+      {/* 상단 광고 배너 — 닫으면 max-height:0 으로 공간 없이 사라짐 */}
+      <AdBanner />
+
       {/* Theme toggle — fixed top-right, visible on all pages */}
       <button
         onClick={toggleTheme}
@@ -36,7 +40,7 @@ export default function App() {
         {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
       </button>
 
-      <div className="h-full overflow-y-auto overscroll-none">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-none">
         {tab === 'home'    && <HomePage    books={books} onBookClick={handleBookClick} onScanClick={() => setTab('scan')} />}
         {tab === 'library' && <LibraryPage books={books} onBookClick={handleBookClick} />}
         {tab === 'scan'    && <ScanPage    onAdd={addBook} onBookClick={handleBookClick} />}

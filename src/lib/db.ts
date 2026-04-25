@@ -7,14 +7,31 @@ const STORE = 'books';
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
 
-function getDB() {
+function getDB(): Promise<IDBPDatabase> {
   if (!dbPromise) {
     dbPromise = openDB(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        const store = db.createObjectStore(STORE, { keyPath: 'id' });
-        store.createIndex('status', 'status');
-        store.createIndex('addedAt', 'addedAt');
+        if (!db.objectStoreNames.contains(STORE)) {
+          const store = db.createObjectStore(STORE, { keyPath: 'id' });
+          store.createIndex('status', 'status');
+          store.createIndex('addedAt', 'addedAt');
+        }
       },
+      blocked() {
+        // 다른 탭에서 이전 버전이 열려 있을 때
+        console.warn('[booknote] DB upgrade blocked by another tab');
+      },
+      blocking() {
+        // 이 탭이 다른 탭의 upgrade를 막고 있을 때 — 연결 해제
+        dbPromise = null;
+      },
+      terminated() {
+        dbPromise = null;
+      },
+    }).catch((err) => {
+      // Safari 사생활 보호 모드 등에서 IndexedDB 실패 시 리셋
+      dbPromise = null;
+      throw err;
     });
   }
   return dbPromise;
