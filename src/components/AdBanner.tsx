@@ -39,9 +39,9 @@ export default function AdBanner() {
           className="adsbygoogle"
           style={{ display: 'block' }}
           data-ad-client="ca-pub-7999144867236526"
-          data-ad-slot="AUTO"
-          data-ad-format="auto"
-          data-full-width-responsive="true"
+          data-ad-slot="5270444172"
+          data-ad-format="fluid"
+          data-ad-layout-key="-gw-3+1f-3d+2z"
         />
         <button
           onClick={dismiss}

@@ -20,7 +20,15 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
 
     scanner.start(
       { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 240, height: 120 } },
+      {
+        fps: 15,
+        qrbox: { width: 300, height: 150 },
+        videoConstraints: {
+          facingMode: 'environment',
+          width:  { min: 640, ideal: 1920, max: 3840 },
+          height: { min: 480, ideal: 1080, max: 2160 },
+        },
+      },
       (decodedText) => {
         if (calledRef.current) return;
         const isbn = decodedText.replace(/[^0-9X]/gi, '');
