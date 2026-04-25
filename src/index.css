@@ -1,24 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg: #0a0a0f;
-  --color-surface: #12121a;
-  --color-surface-2: #1a1a26;
-  --color-surface-3: #222233;
-  --color-border: rgba(255,255,255,0.08);
-  --color-text: #f5f0e8;
-  --color-muted: rgba(245,240,232,0.45);
-  --color-accent: #f59e0b;
-  --color-accent-dim: rgba(245,158,11,0.15);
-  --color-green: #10b981;
-  --color-green-dim: rgba(16,185,129,0.15);
-  --color-indigo: #6366f1;
-  --color-indigo-dim: rgba(99,102,241,0.15);
-  --font-sans: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
-}
-
-/* ── Light theme token overrides ─────────────────── */
-[data-theme="light"] {
+  /* ── Default: Light (white) theme ── */
   --color-bg: #fafaf8;
   --color-surface: #ffffff;
   --color-surface-2: #f5f2ec;
@@ -32,6 +15,24 @@
   --color-green-dim: rgba(5,150,105,0.12);
   --color-indigo: #4f46e5;
   --color-indigo-dim: rgba(79,70,229,0.12);
+  --font-sans: 'Pretendard Variable', 'Pretendard', -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif;
+}
+
+/* ── Dark theme token overrides ─────────────────── */
+[data-theme="dark"] {
+  --color-bg: #0a0a0f;
+  --color-surface: #12121a;
+  --color-surface-2: #1a1a26;
+  --color-surface-3: #222233;
+  --color-border: rgba(255,255,255,0.08);
+  --color-text: #f5f0e8;
+  --color-muted: rgba(245,240,232,0.45);
+  --color-accent: #f59e0b;
+  --color-accent-dim: rgba(245,158,11,0.15);
+  --color-green: #10b981;
+  --color-green-dim: rgba(16,185,129,0.15);
+  --color-indigo: #6366f1;
+  --color-indigo-dim: rgba(99,102,241,0.15);
 }
 
 *, *::before, *::after {
@@ -82,14 +83,14 @@ body {
 .animate-scale-in { animation: scaleIn 0.3s  cubic-bezier(0.16,1,0.3,1) both; }
 
 .glass {
-  background: rgba(18,18,26,0.75);
+  background: rgba(255,255,255,0.82);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(0,0,0,0.08);
 }
-[data-theme="light"] .glass {
-  background: rgba(255,255,255,0.82);
-  border-color: rgba(0,0,0,0.08);
+[data-theme="dark"] .glass {
+  background: rgba(18,18,26,0.75);
+  border-color: rgba(255,255,255,0.07);
 }
 
 .shimmer {

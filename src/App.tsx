@@ -37,7 +37,7 @@ export default function App() {
       </button>
 
       <div className="h-full overflow-y-auto overscroll-none">
-        {tab === 'home'    && <HomePage    books={books} onBookClick={handleBookClick} />}
+        {tab === 'home'    && <HomePage    books={books} onBookClick={handleBookClick} onScanClick={() => setTab('scan')} />}
         {tab === 'library' && <LibraryPage books={books} onBookClick={handleBookClick} />}
         {tab === 'scan'    && <ScanPage    onAdd={addBook} onBookClick={handleBookClick} />}
         {tab === 'stats'   && <StatsPage   books={books} />}

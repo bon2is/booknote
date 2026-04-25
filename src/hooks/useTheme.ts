@@ -11,7 +11,7 @@ function getInitialTheme(): Theme {
   } catch {
     // localStorage unavailable (e.g. private browsing restrictions)
   }
-  return 'dark';
+  return 'light';
 }
 
 function applyTheme(theme: Theme): void {
