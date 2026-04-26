@@ -12,16 +12,10 @@ function timedFetch(url: string, options: RequestInit = {}): Promise<Response> {
 }
 
 // ── 1. Kakao Books API ──────────────────────────────────────────────────────
-// Free, no auth needed for ISBN search via REST API key (set VITE_KAKAO_REST_KEY)
-// Excellent Korean book coverage. Falls back silently if key not configured.
+// /api/book 서버리스 함수를 통해 프록시 — CORS 우회 + 키 보안
 async function fetchFromKakaoBooks(isbn: string): Promise<CreateBookInput | null> {
-  const key = import.meta.env.VITE_KAKAO_REST_KEY as string | undefined;
-  if (!key) return null;
   try {
-    const res = await timedFetch(
-      `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(isbn)}&target=isbn`,
-      { headers: { Authorization: `KakaoAK ${key}` } }
-    );
+    const res = await timedFetch(`/api/book?isbn=${encodeURIComponent(isbn)}`);
     if (!res.ok) return null;
     const data = await res.json() as {
       documents?: Array<{
