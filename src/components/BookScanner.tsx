@@ -75,6 +75,7 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
     // Path B: html5-qrcode + ZXing (Safari 등 BarcodeDetector 미지원)
     async function initHtml5Qrcode() {
       html5Scanner = new Html5Qrcode(html5Id, {
+        verbose: false,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
           Html5QrcodeSupportedFormats.EAN_8,
