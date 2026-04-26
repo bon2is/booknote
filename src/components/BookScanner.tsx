@@ -42,10 +42,19 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
         ],
       });
 
-      // html5-qrcode가 카메라 전체를 관리 — videoConstraints 없이 라이브러리 기본값 사용
       await scanner.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 140 } },
+        {
+          fps: 15,
+          qrbox: { width: 280, height: 140 },
+          videoConstraints: {
+            facingMode: { ideal: 'environment' },
+            width:  { ideal: 1920 },
+            height: { ideal: 1080 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            advanced: [{ focusMode: 'continuous' } as any],
+          },
+        },
         (raw) => emit(raw),
         () => {},
       );
