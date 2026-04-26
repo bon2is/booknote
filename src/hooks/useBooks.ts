@@ -9,9 +9,14 @@ export function useBooks() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await db.getBooks();
-    setBooks(data);
-    setLoading(false);
+    try {
+      const data = await db.getBooks();
+      setBooks(data);
+    } catch (err) {
+      console.error('[booknote] IndexedDB 로드 실패:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
