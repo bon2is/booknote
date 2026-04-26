@@ -32,7 +32,10 @@ export default function ScanPage({ onAdd, onBookClick }: ScanPageProps) {
     setScanState('fetching');
     setMessage('책 정보를 가져오는 중...');
 
-    const info = await fetchBookByIsbn(isbn);
+    // API 전체 체인에 10초 하드타임아웃 (각 요청은 5초 per-request 타임아웃 별도 적용)
+    const hardTimeout = new Promise<null>(resolve => setTimeout(() => resolve(null), 10000));
+    const info = await Promise.race([fetchBookByIsbn(isbn), hardTimeout]);
+
     if (!info) {
       setScanState('error');
       setMessage(`ISBN ${isbn} 에 해당하는 책을 찾을 수 없어요.`);

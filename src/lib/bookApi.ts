@@ -1,5 +1,16 @@
 import type { CreateBookInput } from './types';
 
+// 각 API 요청에 적용할 타임아웃 (ms)
+const FETCH_TIMEOUT = 5000;
+
+function timedFetch(url: string, options: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), FETCH_TIMEOUT);
+  return fetch(url, { ...options, signal: controller.signal }).finally(() =>
+    clearTimeout(id)
+  );
+}
+
 // ── 1. Kakao Books API ──────────────────────────────────────────────────────
 // Free, no auth needed for ISBN search via REST API key (set VITE_KAKAO_REST_KEY)
 // Excellent Korean book coverage. Falls back silently if key not configured.
@@ -7,7 +18,7 @@ async function fetchFromKakaoBooks(isbn: string): Promise<CreateBookInput | null
   const key = import.meta.env.VITE_KAKAO_REST_KEY as string | undefined;
   if (!key) return null;
   try {
-    const res = await fetch(
+    const res = await timedFetch(
       `https://dapi.kakao.com/v3/search/book?query=${encodeURIComponent(isbn)}&target=isbn`,
       { headers: { Authorization: `KakaoAK ${key}` } }
     );
@@ -51,7 +62,7 @@ async function fetchFromNaverBooks(isbn: string): Promise<CreateBookInput | null
   const clientSecret = import.meta.env.VITE_NAVER_CLIENT_SECRET as string | undefined;
   if (!clientId || !clientSecret) return null;
   try {
-    const res = await fetch(
+    const res = await timedFetch(
       `https://openapi.naver.com/v1/search/book_adv.json?d_isbn=${isbn}`,
       {
         headers: {
@@ -97,7 +108,7 @@ async function fetchFromNaverBooks(isbn: string): Promise<CreateBookInput | null
 // ── 3. Open Library — direct ISBN lookup ────────────────────────────────────
 async function fetchFromOpenLibrary(isbn: string): Promise<CreateBookInput | null> {
   try {
-    const res = await fetch(
+    const res = await timedFetch(
       `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
     );
     if (!res.ok) return null;
@@ -131,7 +142,7 @@ async function fetchFromOpenLibrary(isbn: string): Promise<CreateBookInput | nul
 // ── 4. Open Library — full-text search fallback ──────────────────────────────
 async function fetchFromOpenLibrarySearch(isbn: string): Promise<CreateBookInput | null> {
   try {
-    const res = await fetch(
+    const res = await timedFetch(
       `https://openlibrary.org/search.json?isbn=${isbn}&limit=1`
     );
     if (!res.ok) return null;
@@ -175,7 +186,7 @@ async function fetchFromGoogleBooks(isbn: string): Promise<CreateBookInput | nul
 
   for (const q of queries) {
     try {
-      const res = await fetch(
+      const res = await timedFetch(
         `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=1`
       );
       if (!res.ok) continue;
