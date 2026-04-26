@@ -48,6 +48,19 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
       });
       if (dead) { mediaStream.getTracks().forEach(t => t.stop()); return; }
 
+      // 연속 자동초점 활성화 — 바코드 근접 촬영 시 초점 흐림 방지
+      const track = mediaStream.getVideoTracks()[0];
+      if (track) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const cap = track.getCapabilities() as any;
+          if (cap.focusMode?.includes('continuous')) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+          }
+        } catch { /* focusMode 미지원 기기 무시 */ }
+      }
+
       videoEl = document.createElement('video');
       videoEl.playsInline = true;
       videoEl.muted = true;
@@ -61,14 +74,14 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
 
       setScanState('scanning');
 
-      // 100ms 간격(약 10fps)으로 프레임 분석
+      // 100ms 간격(약 10fps)으로 프레임 분석, readyState 체크로 미준비 프레임 건너뜀
       timerId = window.setInterval(async () => {
-        if (dead || !videoEl) return;
+        if (dead || !videoEl || videoEl.readyState < 2) return;
         try {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const bcs: { rawValue: string }[] = await detector.detect(videoEl);
           bcs.forEach(bc => emit(bc.rawValue));
-        } catch { /* 프레임 미준비 상태 무시 */ }
+        } catch { /* 검출 실패 프레임 무시 */ }
       }, 100);
     }
 
@@ -93,6 +106,8 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
             facingMode: 'environment',
             width:  { ideal: 1920 },
             height: { ideal: 1080 },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            advanced: [{ focusMode: 'continuous' } as any],
           },
         },
         (raw) => emit(raw),
