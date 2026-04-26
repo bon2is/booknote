@@ -47,10 +47,10 @@ export default function App() {
         {tab === 'stats'   && <StatsPage   books={books} />}
       </div>
 
-      {/* 배포 버전 확인용 — BottomNav 위에 아주 작게 표시 */}
+      {/* 배포 버전 확인용 — BottomNav 위 우하단 */}
       <div className="fixed bottom-[72px] right-2 z-40 pointer-events-none">
-        <span className="text-[9px] text-[var(--color-muted)]/40 font-mono select-none">
-          {__GIT_HASH__}
+        <span className="text-[10px] text-[var(--color-muted)] font-mono opacity-60 select-none">
+          v{__GIT_HASH__}
         </span>
       </div>
 
