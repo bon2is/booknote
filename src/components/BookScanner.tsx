@@ -12,8 +12,9 @@ function toIsbn(raw: string): string | null {
   return d.length === 10 || d.length === 13 ? d : null;
 }
 
+const CONTAINER_ID = 'qr-scanner-container';
+
 export default function BookScanner({ onScan, onError }: BookScannerProps) {
-  const wrapRef = useRef<HTMLDivElement>(null);
   const [scanState, setScanState] = useState<'loading' | 'scanning' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
   const doneRef = useRef(false);
@@ -26,55 +27,11 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
 
   useEffect(() => {
     let dead = false;
-    let timerId = 0;
-    let html5Scanner: Html5Qrcode | null = null;
-    let videoEl: HTMLVideoElement | null = null;
-    let mediaStream: MediaStream | null = null;
-    const html5Id = 'qr-scanner-container';
+    let nativeTimerId = 0;
+    let scanner: Html5Qrcode | null = null;
 
-    // Path A: 네이티브 BarcodeDetector (Android Chrome — 내장 바코드 인식 엔진)
-    async function initBarcodeDetector() {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const detector = new (window as any).BarcodeDetector({
-        formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'],
-      });
-
-      mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width:  { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-      });
-      if (dead) { mediaStream.getTracks().forEach(t => t.stop()); return; }
-
-      videoEl = document.createElement('video');
-      videoEl.playsInline = true;
-      videoEl.muted = true;
-      videoEl.style.cssText =
-        'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
-      // React 자식 앞에 삽입해야 오버레이가 위에 표시됨
-      wrapRef.current!.insertBefore(videoEl, wrapRef.current!.firstChild);
-      videoEl.srcObject = mediaStream;
-      await videoEl.play();
-      if (dead) return;
-
-      setScanState('scanning');
-
-      // 100ms 간격(약 10fps)으로 프레임 분석
-      timerId = window.setInterval(async () => {
-        if (dead || !videoEl) return;
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const bcs: { rawValue: string }[] = await detector.detect(videoEl);
-          bcs.forEach(bc => emit(bc.rawValue));
-        } catch { /* 프레임 미준비 상태 무시 */ }
-      }, 100);
-    }
-
-    // Path B: html5-qrcode + ZXing (Safari 등 BarcodeDetector 미지원)
-    async function initHtml5Qrcode() {
-      html5Scanner = new Html5Qrcode(html5Id, {
+    async function start() {
+      scanner = new Html5Qrcode(CONTAINER_ID, {
         verbose: false,
         formatsToSupport: [
           Html5QrcodeSupportedFormats.EAN_13,
@@ -84,39 +41,40 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
           Html5QrcodeSupportedFormats.UPC_E,
         ],
       });
-      await html5Scanner.start(
+
+      // html5-qrcode가 카메라 전체를 관리 — videoConstraints 없이 라이브러리 기본값 사용
+      await scanner.start(
         { facingMode: 'environment' },
-        {
-          fps: 15,
-          qrbox: { width: 280, height: 140 },
-          videoConstraints: {
-            facingMode: 'environment',
-            width:  { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-        },
+        { fps: 10, qrbox: { width: 280, height: 140 } },
         (raw) => emit(raw),
         () => {},
       );
-      if (dead) { html5Scanner.stop().catch(() => {}); return; }
+
+      if (dead) { scanner.stop().catch(() => {}); return; }
       setScanState('scanning');
-    }
 
-    async function init() {
-      if (!wrapRef.current) return;
-
+      // BarcodeDetector 가속 (Android Chrome 전용)
+      // html5-qrcode가 생성한 video 엘리먼트를 재사용 — 별도 카메라 스트림 없음
       if ('BarcodeDetector' in window) {
-        try {
-          await initBarcodeDetector();
-          return;
-        } catch {
-          // 기기에서 지원 안 하면 html5-qrcode로 폴백
+        const videoEl = document.querySelector<HTMLVideoElement>(`#${CONTAINER_ID} video`);
+        if (videoEl) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const detector = new (window as any).BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'],
+          });
+          nativeTimerId = window.setInterval(async () => {
+            if (dead || videoEl.readyState < 2) return;
+            try {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const bcs: { rawValue: string }[] = await detector.detect(videoEl);
+              bcs.forEach(bc => emit(bc.rawValue));
+            } catch { /* 검출 실패 프레임 무시 */ }
+          }, 100);
         }
       }
-      if (!dead) await initHtml5Qrcode();
     }
 
-    init().catch(err => {
+    start().catch(err => {
       if (!dead) {
         const msg = err instanceof Error ? err.message : '카메라를 시작할 수 없습니다.';
         setErrorMsg(msg);
@@ -127,18 +85,15 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
 
     return () => {
       dead = true;
-      clearInterval(timerId);
-      mediaStream?.getTracks().forEach(t => t.stop());
-      videoEl?.remove();
-      if (html5Scanner?.isScanning) html5Scanner.stop().catch(() => {});
+      clearInterval(nativeTimerId);
+      if (scanner?.isScanning) scanner.stop().catch(() => {});
     };
   }, [emit, onError]);
 
   return (
     <div className="relative w-full max-w-sm mx-auto">
-      <div ref={wrapRef} className="relative rounded-2xl overflow-hidden bg-black aspect-[4/3]">
-        {/* html5-qrcode가 렌더링할 컨테이너 (BarcodeDetector 모드에서는 비어 있음) */}
-        <div id="qr-scanner-container" className="w-full h-full" />
+      <div className="relative rounded-2xl overflow-hidden bg-black aspect-[4/3]">
+        <div id={CONTAINER_ID} className="w-full h-full" />
 
         {scanState === 'loading' && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-bg)]/80">
