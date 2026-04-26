@@ -12,6 +12,28 @@ function toIsbn(raw: string): string | null {
   return d.length === 10 || d.length === 13 ? d : null;
 }
 
+// 스트림의 비디오 트랙에 autofocus 적용 (지원 기기만)
+async function applyAutofocus(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0];
+  if (!track) return;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cap = track.getCapabilities() as any;
+    const supported = cap.focusMode as string[] | undefined;
+    if (!supported) return;
+    // single-shot으로 한 번 트리거 후 continuous로 전환
+    if (supported.includes('single-shot')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await track.applyConstraints({ advanced: [{ focusMode: 'single-shot' } as any] });
+      await new Promise(r => setTimeout(r, 400));
+    }
+    if (supported.includes('continuous')) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
+    }
+  } catch { /* focusMode 미지원 기기 무시 */ }
+}
+
 export default function BookScanner({ onScan, onError }: BookScannerProps) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [scanState, setScanState] = useState<'loading' | 'scanning' | 'error'>('loading');
@@ -32,41 +54,31 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
     let mediaStream: MediaStream | null = null;
     const html5Id = 'qr-scanner-container';
 
-    // Path A: 네이티브 BarcodeDetector (Android Chrome — 내장 바코드 인식 엔진)
+    // Path A: 네이티브 BarcodeDetector (Android Chrome)
     async function initBarcodeDetector() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const detector = new (window as any).BarcodeDetector({
         formats: ['ean_13', 'ean_8', 'code_128', 'upc_a', 'upc_e'],
       });
 
+      // 1280×720: 고해상도(1920)보다 모바일 autofocus 성능이 훨씬 안정적
       mediaStream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
-          width:  { ideal: 1920 },
-          height: { ideal: 1080 },
+          width:  { ideal: 1280 },
+          height: { ideal: 720 },
         },
       });
       if (dead) { mediaStream.getTracks().forEach(t => t.stop()); return; }
 
-      // 연속 자동초점 활성화 — 바코드 근접 촬영 시 초점 흐림 방지
-      const track = mediaStream.getVideoTracks()[0];
-      if (track) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const cap = track.getCapabilities() as any;
-          if (cap.focusMode?.includes('continuous')) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            await track.applyConstraints({ advanced: [{ focusMode: 'continuous' } as any] });
-          }
-        } catch { /* focusMode 미지원 기기 무시 */ }
-      }
+      await applyAutofocus(mediaStream);
 
       videoEl = document.createElement('video');
       videoEl.playsInline = true;
       videoEl.muted = true;
+      videoEl.setAttribute('autoplay', '');
       videoEl.style.cssText =
         'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
-      // React 자식 앞에 삽입해야 오버레이가 위에 표시됨
       wrapRef.current!.insertBefore(videoEl, wrapRef.current!.firstChild);
       videoEl.srcObject = mediaStream;
       await videoEl.play();
@@ -74,7 +86,10 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
 
       setScanState('scanning');
 
-      // 100ms 간격(약 10fps)으로 프레임 분석, readyState 체크로 미준비 프레임 건너뜀
+      // 카메라 초점이 안정될 때까지 1.5초 대기 후 detection 시작
+      await new Promise(r => setTimeout(r, 1500));
+      if (dead) return;
+
       timerId = window.setInterval(async () => {
         if (dead || !videoEl || videoEl.readyState < 2) return;
         try {
@@ -82,7 +97,7 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
           const bcs: { rawValue: string }[] = await detector.detect(videoEl);
           bcs.forEach(bc => emit(bc.rawValue));
         } catch { /* 검출 실패 프레임 무시 */ }
-      }, 100);
+      }, 150);
     }
 
     // Path B: html5-qrcode + ZXing (Safari 등 BarcodeDetector 미지원)
@@ -100,12 +115,12 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
       await html5Scanner.start(
         { facingMode: 'environment' },
         {
-          fps: 15,
+          fps: 10,
           qrbox: { width: 280, height: 140 },
           videoConstraints: {
             facingMode: 'environment',
-            width:  { ideal: 1920 },
-            height: { ideal: 1080 },
+            width:  { ideal: 1280 },
+            height: { ideal: 720 },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             advanced: [{ focusMode: 'continuous' } as any],
           },
@@ -125,7 +140,7 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
           await initBarcodeDetector();
           return;
         } catch {
-          // 기기에서 지원 안 하면 html5-qrcode로 폴백
+          // 기기 미지원 시 html5-qrcode로 폴백
         }
       }
       if (!dead) await initHtml5Qrcode();
@@ -152,7 +167,6 @@ export default function BookScanner({ onScan, onError }: BookScannerProps) {
   return (
     <div className="relative w-full max-w-sm mx-auto">
       <div ref={wrapRef} className="relative rounded-2xl overflow-hidden bg-black aspect-[4/3]">
-        {/* html5-qrcode가 렌더링할 컨테이너 (BarcodeDetector 모드에서는 비어 있음) */}
         <div id="qr-scanner-container" className="w-full h-full" />
 
         {scanState === 'loading' && (
